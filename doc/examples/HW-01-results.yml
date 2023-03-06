@@ -36,7 +36,7 @@ rshackleford:
     handler: manual
     tag: Problem 1
     weight: 1
-    result: false
+    result: true
     notes: []
   - desc: Running command to check that something is true...
     handler: test -f tmp.txt

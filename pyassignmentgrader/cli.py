@@ -225,3 +225,9 @@ def print_summary(results_file: Path):
     if not results_file.exists():
         print(f"[bold red]Results file '{results_file}' does not exists.[/bold red]")
         raise typer.Exit(1)
+
+    results = GradingResults()
+    results.load(results_file.open())
+    results.score()
+
+    print("\n".join(results.summary()))
