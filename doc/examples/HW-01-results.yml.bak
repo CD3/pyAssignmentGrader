@@ -1,0 +1,42 @@
+jdoe:
+  working_directory: jdoe/HW-01-jdoe
+  checks:
+  - desc: Checking that something is true...
+    handler: manual
+    tag: Problem 1
+    weight: 1
+    result: null
+    notes: []
+  - desc: Running command to check that something is true...
+    handler: test -f tmp.txt
+    tag: Problem 2
+    weight: 1
+    result: true
+    notes: []
+  - desc: Running python funcgtion to check that something is true...
+    handler: HW_01_checks:Problem3
+    tag: Problem 3
+    weight: 1
+    result: null
+    notes: []
+rshackleford:
+  working_directory: rshackleford/HW-01-rshackleford
+  checks:
+  - desc: Checking that something is true...
+    handler: manual
+    tag: Problem 1
+    weight: 1
+    result: null
+    notes: []
+  - desc: Running command to check that something is true...
+    handler: test -f tmp.txt
+    tag: Problem 2
+    weight: 1
+    result: true
+    notes: []
+  - desc: Running python funcgtion to check that something is true...
+    handler: HW_01_checks:Problem3
+    tag: Problem 3
+    weight: 1
+    result: null
+    notes: []

@@ -1,0 +1,18 @@
+working_directory: "{name}/HW-01-{name}"
+checks:
+- desc: Checking that something is true...
+  handler: manual
+  tag: Problem 1
+  weight: 1
+- desc: Running command to check that something is true...
+  handler: test -f tmp.txt
+  tag: Problem 2
+  weight: 1
+- desc: Running python funcgtion to check that something is true...
+  handler: HW_01_checks:Problem3
+  tag: Problem 3
+  weight: 1
+- desc: Checking that file named `tmp-2.txt` exists.
+  handler: test -f tmp-2.txt
+  tag: Problem 4
+  weight: 1

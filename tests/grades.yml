@@ -1,0 +1,24 @@
+jdoe:
+  checks:
+    - tag: Problem 1
+      desc: Checking that all temporary files have been removed
+      weight: 1
+      result: True
+      subchecks: []
+      notes:
+        - Looks good
+    - tag: Problem 2
+      desc: Checking that script runs
+      weight: 1
+      result: False
+      notes:
+        - Could not run script with command `./myScript.sh`
+      subchecks:
+        - desc: Checking that script
+
+    - tag: Problem 2
+      desc: Checking that tmp.txt was created
+      weight: 1
+      result: NULL
+      notes: []
+

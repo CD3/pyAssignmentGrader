@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pyassignmentgrader"
+version = "0.1.0"
+description = ""
+authors = ["CD Clark III <clifton.clark@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fspathtree = "^0.7"
+pytest = "^7.2.2"
+pytest-pudb = "^0.7.0"
+pyyaml = "^6.0"
+typer = {extras = ["all"], version = "^0.7.0"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pygrader = "pyassignmentgrader.cli:app"
