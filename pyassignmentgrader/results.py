@@ -17,13 +17,33 @@ class GradingResults:
         text = yaml.safe_dump(self.data.tree, sort_keys=False)
         filehandle.write(text)
 
-    def add_student(self, name:str, rubric:GradingRubric):
+    def __render_working_directories(self):
+            for key in self.data.get_all_leaf_node_paths(
+                predicate=lambda p: p.name == "working_directory"
+            ):
+                name = key.parts[1]
+                self.data[key] = self.data[key].format(name=name)
+
+
+    def add_student(self, name: str, rubric: GradingRubric):
         if name not in self.data:
             self.data.tree[name] = rubric.make_empty_grading_results().tree
-            for key in self.data.get_all_leaf_node_paths(predicate = lambda p : len(p.parts) > 1 and p.parts[1] == name and p.name == "working_directory"):
-                self.data[key] = self.data[key].format(name=name)
+            self.__render_working_directories()
         else:
             raise RuntimeError(f"Student '{name}' is already in the grading results.")
+
+    def update_student(self, name: str, rubric: GradingRubric):
+        if name not in self.data:
+            return self.add_student(name, rubric)
+
+        result_keys = list(self.data[name].get_all_leaf_node_paths())
+        empty_results = rubric.make_empty_grading_results()
+        missing_keys = empty_results.get_all_leaf_node_paths( predicate = lambda p : p not in result_keys, transform = lambda p: '/'.join(p.parts[1:]))
+        for missing_key in missing_keys:
+            self.data[ f"/{name}/{missing_key}"] = empty_results[f"{missing_key}"]
+
+        self.__render_working_directories()
+
 
     def __score(self, list_of_checks):
         warnings = []
@@ -89,8 +109,10 @@ class GradingResults:
 
     def __checks_summary(self, list_of_checks, prefix=""):
         lines = []
+
         def add_line(text):
             lines.append(f"{prefix}{text}")
+
         for check in list_of_checks:
             tag = check.get("tag", "Check")
             desc = check.get("desc", "")
@@ -107,7 +129,9 @@ class GradingResults:
             if "secondary_checks" in check:
                 add_line(f"  Secondary Checks:")
                 add_line(f"    weight: {check['secondary_checks/weight']}")
-                lines += self.__checks_summary(check['secondary_checks/checks'],prefix+"    ")
+                lines += self.__checks_summary(
+                    check["secondary_checks/checks"], prefix + "    "
+                )
         return lines
 
     def summary(self, prefix=""):

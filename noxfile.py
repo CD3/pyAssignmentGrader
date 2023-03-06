@@ -23,7 +23,7 @@ except ImportError:
 
 
 package = "pyassignmentgrader/"
-python_versions = ["3.8", "3.10"]
+python_versions = ["3.10"]
 nox.needs_version = ">= 2021.6.6"
 nox.options.sessions = ("tests",)
 

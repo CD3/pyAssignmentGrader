@@ -195,8 +195,8 @@ jdoe:
     assert len(lines) > 0
     assert lines[0] == "Grading report for 'jdoe':"
 
-    print()
-    print("\n".join(lines))
+    # print()
+    # print("\n".join(lines))
 
 
 def test_adding_new_student_with_rubric():
