@@ -12,6 +12,23 @@ from .utils import *
 app = typer.Typer()
 
 
+def make_import_statement(func_spec: str):
+    module_name, function_call = func_spec.split(":")
+    function_toks = function_call.split('(')
+    function_name = function_toks[0]
+    import_statement = f"from {module_name} import {function_name}"
+    return import_statement
+
+
+def make_function_call(func_spec: str):
+    module_name, function_call = func_spec.split(":")
+    function_toks = function_call.split('(')
+    function_name = function_toks[0]
+    function_args = ("("+function_toks[1]) if len(function_toks) > 1 else "()"
+
+    return function_name+function_args
+
+
 @app.command()
 def setup_grading_files(
     config_file: Path,
@@ -19,7 +36,9 @@ def setup_grading_files(
         False, "-x", help="Overwrite the results file if it already exists."
     ),
     update: bool = typer.Option(
-        False, "-u", help="Update the results file with missing checks. i.e. if the rubric has been updated since the results file was created."
+        False,
+        "-u",
+        help="Update the results file with missing checks. i.e. if the rubric has been updated since the results file was created.",
     ),
 ):
     """
@@ -30,10 +49,13 @@ def setup_grading_files(
     example:
 
     users:
-      - jdoe
-      - rshackleford
+      - name: jdoe
+      - name: rshackleford
     results: HW-01-results.yml
     rubric: HW-01-rubric.yml
+    prepressing:
+        - mkdir HW-01-grading
+        - tar HW-01-submissions.tar.bz2
     """
     if not config_file.exists():
         print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
@@ -72,9 +94,79 @@ def setup_grading_files(
         for student in config["students"]:
             results.update_student(student["name"], rubric)
 
-
     results.dump(results_file.open("w"))
 
+
+    sys.path.append(str(config_file.absolute().parent))
+    for preproc in config.get('preprocessing',[]):
+        conf = {'type':None,'cmd':'','working_directory': Path().absolute()}
+
+        if type(preproc) is str and ':' in preproc:
+            conf['type'] = 'python'
+            conf['cmd'] = preproc
+
+        if type(preproc) is str and ':' not in preproc:
+            conf['type'] = 'shell'
+            conf['cmd'] = preproc
+
+        if type(preproc) is fspathtree:
+            conf = preproc.tree
+            if 'type' not in conf:
+                if ":" in conf['cmd']:
+                    conf['type'] = 'python'
+                else:
+                    conf['type'] = 'shell'
+
+
+        # expand to multiple commands if needed
+        if '{name}' in conf['cmd']:
+            confs = []
+            for student in config["students"]:
+                confs.append(copy.deepcopy(conf))
+                confs[-1]['cmd'] = confs[-1]['cmd'].format(name=student['name'])
+        else:
+            confs = [conf]
+
+
+        for conf in confs:
+            if conf['type'] == 'python':
+                exec( make_import_statement(conf['cmd'] ) )
+                wd = Path(conf.get("working_directory",".")).absolute()
+                with working_dir(wd):
+                    eval(make_function_call(conf['cmd']))
+            if conf['type'] == 'shell':
+                print(f"[green]cmd[/green]: {conf['cmd']}")
+                ret = run(conf['cmd'], shell=True,cwd=conf['working_directory'])
+                if ret.returncode != 0:
+                    print(f"[yellow]Preprocessing command `{conf['cmd']}` returned non-zero exist status.[/yellow]")
+
+
+
+@app.command()
+def write_condig_file(
+    config_file: Path,
+    overwrite: bool = typer.Option(
+        False, "-x", help="Overwrite the results file if it already exists."
+    ),
+):
+
+    if not overwrite and config_file.exists():
+        print(
+            f"[bold red]Config file '{config_file}' already exists. Remove and run again, or use the `-x` option.[/bold red]"
+        )
+        return 1
+    data = fspathtree()
+    data["students/0/name"] = "jdoe"
+    data["students/0/working_directory"] = "HW-01-jdoe"
+    data["students/1/name"] = "rshackleford"
+    data["students/1/working_directory"] = "HW-01-rshackleford"
+    data["rubric_file"] = "HW-01-rubic.yml"
+    data["results_file"] = "HW-01-result.yml"
+    data["preprocessing/0"] = "mkdir HW-01-grading"
+    data["preprocessing/1/cmd"] = "tar -xjf ../gradebook*tar.bz2"
+    data["preprocessing/1/working_directory"] = "HW-01-grading"
+
+    yaml.safe_dump(data.tree, config_file.open("w"))
 
 @app.command()
 def write_example_rubric_file(
@@ -191,14 +283,9 @@ def run_check(check_spec, force=False):
         if ":" in handler:
             print(f"Running check for {check_name}")
             print(f"Calling {handler}")
-            module_name, function_name = handler.split(":")
-            import_statement = f"from {module_name} import {function_name}"
-            print(import_statement)
-            print()
-            exec(import_statement)
-            return eval(function_name + "()")
+            exec(make_import_statement(handler))
+            return eval(make_function_call(handler))
 
-        ret = run(handler, shell=True, stdout=PIPE, stderr=STDOUT)
         try:
             print(f"Running check for {check_name}")
             print(f"Calling '{handler}' as shell command")
