@@ -143,10 +143,10 @@ def setup_grading_files(
 
 
 @app.command()
-def write_condig_file(
+def write_example_config_file(
     config_file: Path,
     overwrite: bool = typer.Option(
-        False, "-x", help="Overwrite the results file if it already exists."
+        False, "-x", help="Overwrite the config file if it already exists."
     ),
 ):
 
@@ -232,6 +232,9 @@ def run_checks(
 
     with working_dir(working_directory) as assignment_dir:
         for student in results.data.tree:
+            print()
+            print()
+            print(f"Grading assignment for {student}")
             wd = Path(results.data.get(f"{student}/working_directory", ".")).absolute()
             with working_dir(wd) as student_dir:
                 for key in list(
@@ -241,8 +244,15 @@ def run_checks(
                         and p.name == "result"
                     )
                 ):
+                    print()
                     ret = run_check(results.data[key / ".."], force)
                     results.data[key] = ret["result"]
+                    if ret['result'] is True:
+                        print("[green]PASS[/green]")
+                    if ret['result'] is False:
+                        print("[red]FAIL[/red]")
+                    if ret['result'] is None:
+                        print("[yellow]NO RESULT[/yellow]")
                     results.data[key / "../notes"].tree.clear()
                     # if len(ret['notes']) > 0:
                     # if key/'../notes' not in results.data:
@@ -256,7 +266,6 @@ def run_check(check_spec, force=False):
     check_name = f"{check_spec['tag']}: {check_spec['desc']}"
     if not force and check_spec["result"] is not None:
         print(f"[green]SKIPPING[/green] - {check_name} has already been ran.")
-        print()
         return {"result": check_spec["result"], "notes": []}
 
     with working_dir(wd) as check_dir:
@@ -282,6 +291,8 @@ def run_check(check_spec, force=False):
 
         if ":" in handler:
             print(f"Running check for {check_name}")
+            if "{name}" in handler:
+                handler = handler.format( name=check_spec.path().parts[1] )
             print(f"Calling {handler}")
             exec(make_import_statement(handler))
             return eval(make_function_call(handler))
@@ -289,7 +300,6 @@ def run_check(check_spec, force=False):
         try:
             print(f"Running check for {check_name}")
             print(f"Calling '{handler}' as shell command")
-            print()
             ret = run(handler, shell=True, stdout=PIPE, stderr=STDOUT)
             if ret.returncode == 0:
                 return {"result": True, "notes": []}
