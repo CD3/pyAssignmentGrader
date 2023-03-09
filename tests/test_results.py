@@ -14,7 +14,7 @@ jdoe:
     ''')
 
     newfile = StringIO()
-    
+
 
     results.load(file)
     results.dump(newfile)
@@ -63,7 +63,7 @@ jdoe:
 
     # for warning in warnings:
     #     print(warning)
-    
+
     # pprint.pprint(results.data.tree)
 
 

@@ -38,7 +38,7 @@ class GradingResults:
 
         result_keys = list(self.data[name].get_all_leaf_node_paths())
         empty_results = rubric.make_empty_grading_results()
-        missing_keys = empty_results.get_all_leaf_node_paths( predicate = lambda p : p not in result_keys, transform = lambda p: '/'.join(p.parts[1:]))
+        missing_keys = empty_results.get_all_leaf_node_paths( predicate = lambda p : p not in result_keys)
         for missing_key in missing_keys:
             self.data[ f"/{name}/{missing_key}"] = empty_results[f"{missing_key}"]
 
@@ -51,10 +51,9 @@ class GradingResults:
         total = 0
         awarded = 0
         for key in list_of_checks.get_all_leaf_node_paths(
-            transform=lambda p: str(p)[1:],
-            predicate=lambda p: len(p.parts) == 3 and p.name == "weight",
+            predicate=lambda p: len(p.parts) == 2 and p.name == "result",
         ):
-            total += list_of_checks[key]
+            total += list_of_checks.get(key/"../weight",1)
 
         user = list_of_checks.path().parts[1]
         for i in range(len(list_of_checks)):
@@ -70,11 +69,12 @@ class GradingResults:
                 msg += f"\n"
                 msg += f"         I am skipping the check which means that the computed score MAY BE TOO LOW."
                 warnings.append(msg)
+                continue
 
             weight = check.get("weight", 1)
             if check["result"] is True:
                 awarded += weight
-            else:
+            elif check["result"] is False:
                 if "secondary_checks" in check:
                     if "secondary_checks/checks" not in check:
                         raise RuntimeError(
@@ -88,8 +88,13 @@ class GradingResults:
                     warnings += w
                     errors += e
                     awarded += weight * check["secondary_checks/weight"] * a / t
+            elif isinstance( check["result"], (int,float) ):
+                awarded += weight*check["result"]
+            else:
+                raise RuntimeError(f"Unexpected result type {type(check['result'])}. Expected a bool, float, or None.")
 
         return total, awarded, warnings, errors
+
 
     def score(self):
         warnings = []
@@ -125,6 +130,12 @@ class GradingResults:
                 add_line(f"  result: PASS")
             else:
                 add_line(f"  result: FAIL")
+
+            if "notes" in check:
+                add_line(f"  notes:")
+                for n in check["notes"]:
+                    add_line(f"      {n}")
+
 
             if "secondary_checks" in check:
                 add_line(f"  Secondary Checks:")

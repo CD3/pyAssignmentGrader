@@ -210,6 +210,9 @@ def run_checks(
     working_directory: Path = typer.Option(
         Path(), "-d", help="The working directory to run tests from."
     ),
+    student: str = typer.Option(
+        None, "-s", help="Only run checks for given student."
+    ),
 ):
     """
     Run checks in a grading results file that have not been run yet.
@@ -231,16 +234,30 @@ def run_checks(
     sys.path.append(str(results_file.absolute().parent))
 
     with working_dir(working_directory) as assignment_dir:
-        for student in results.data.tree:
+        for student_name in results.data.tree:
+            if student and student_name != student:
+                continue
+
             print()
             print()
-            print(f"Grading assignment for {student}")
-            wd = Path(results.data.get(f"{student}/working_directory", ".")).absolute()
+            print(f"Grading assignment for {student_name}")
+
+            wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
+            with working_dir(wd) as student_dir:
+                ctx = dict()
+                ctx['student_name'] = student_name
+                ctx['student_dir'] = student_dir
+                ctx['list_of_checks'] = results.data[student_name]['checks']
+                run_list_of_checks( results.data[student_name]['checks'], ctx, force)
+
+            continue
+
+            wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
             with working_dir(wd) as student_dir:
                 for key in list(
                     results.data.get_all_leaf_node_paths(
                         predicate=lambda p: len(p.parts) > 1
-                        and p.parts[1] == student
+                        and p.parts[1] == student_name
                         and p.name == "result"
                     )
                 ):
@@ -253,6 +270,9 @@ def run_checks(
                         print("[red]FAIL[/red]")
                     if ret['result'] is None:
                         print("[yellow]NO RESULT[/yellow]")
+                    print("NOTES:")
+                    for n in ret['notes']:
+                        print("  ",n)
                     results.data[key / "../notes"].tree.clear()
                     # if len(ret['notes']) > 0:
                     # if key/'../notes' not in results.data:
@@ -261,68 +281,105 @@ def run_checks(
     results.dump(results_file.open("w"))
 
 
-def run_check(check_spec, force=False):
-    wd = Path(check_spec.get("working_directory", ".")).absolute()
-    check_name = f"{check_spec['tag']}: {check_spec['desc']}"
-    if not force and check_spec["result"] is not None:
+
+
+
+
+def run_list_of_checks(list_of_checks, ctx, force=False):
+    for check in list_of_checks:
+        wd = Path(check.get("working_directory",".")).absolute()
+        with working_dir(wd) as check_dir:
+            print()
+            ret = run_check(check,ctx,force)
+            check["result"] = ret["result"]
+            check["notes"] = ret["notes"]
+            # check["notes"].tree.clear()
+            # for note in ret["notes"]:
+            #     check["notes"].tree.append(note)
+
+            if ret['result'] is True:
+                print("  [green]PASS[/green]")
+            if ret['result'] is False:
+                print("  [red]FAIL[/red]")
+            if ret['result'] is None:
+                print("  [yellow]NO RESULT[/yellow]")
+            print("  NOTES:")
+            for n in ret['notes']:
+                print("    ",n)
+
+            if check["result"] is False and 'secondary_checks' in check:
+
+                wwd = Path(check.get("secondary_checks/working_directory",".")).absolute()
+                with working_dir(wwd) as secondary_checks_dir:
+                    run_list_of_checks( check['secondary_checks/checks'], ctx )
+
+
+
+
+def run_check(check,ctx,force=False):
+    check_name = f"{ctx['student_name']}>{check['tag']}: {check['desc']}"
+    notes = []
+    if not force and check["result"] is not None:
         print(f"[green]SKIPPING[/green] - {check_name} has already been ran.")
-        return {"result": check_spec["result"], "notes": []}
+        return {"result": check["result"], "notes": notes}
 
-    with working_dir(wd) as check_dir:
-        handler = check_spec.get("handler", "manual")
-        if handler == "manual":
-            print(check_name)
-            response = ""
-            notes = []
-            while response.lower() not in ["y", "n", "yes", "no"]:
-                if len(response) > 0:
-                    print(f"Unrecognized response [yellow]{response}[/yellow]")
-                response = input("Did this check pass? [y/n] ")
-            result = response.lower().startswith("y")
+    handler = check.get("handler", "manual")
+    print(f"Running check for '{check_name}'")
+    if handler == "manual":
+        print("Manual Check")
+        response = ""
+        while response.lower() not in ["y", "n", "yes", "no"]:
+            if len(response) > 0:
+                print(f"Unrecognized response [yellow]{response}[/yellow]")
+            response = input("Did this check pass? [y/n] ")
+        result = response.lower().startswith("y")
 
-            response = input("Notes? [y/n] ")
-            if response.lower().startswith("y"):
+        response = input("Notes? [y/n] ")
+        if response.lower().startswith("y"):
+            response = input("Add note (enter 'EOF' to stop): ")
+            while response.lower() != "eof":
+                notes.append(response)
                 response = input("Add note (enter 'EOF' to stop): ")
-                while response.lower() != "eof":
-                    notes.append(response)
-                    response = input("Add note (enter 'EOF' to stop): ")
 
-            return {"result": result, "notes": notes}
+        return {"result": result, "notes": notes}
 
-        if ":" in handler:
-            print(f"Running check for {check_name}")
-            if "{name}" in handler:
-                handler = handler.format( name=check_spec.path().parts[1] )
-            print(f"Calling {handler}")
-            exec(make_import_statement(handler))
-            return eval(make_function_call(handler))
+    if ":" in handler:
+        if "{name}" in handler:
+            handler = handler.format( name=check.path().parts[1] )
+        print(f"  Calling '{handler}' as Python function")
+        exec(make_import_statement(handler))
+        return eval(make_function_call(handler))
 
-        try:
-            print(f"Running check for {check_name}")
-            print(f"Calling '{handler}' as shell command")
-            ret = run(handler, shell=True, stdout=PIPE, stderr=STDOUT)
-            if ret.returncode == 0:
-                return {"result": True, "notes": []}
-            else:
-                notes = []
-                notes.append("Command finished with a non-zero exit code.")
-                notes.append(f"command: {handler}.")
-                notes.append("command output:" + ret.stdout.decode("utf-8"))
-                return {"result": False, "notes": notes}
-        except Exception as e:
-            print(f"Unrecognized handler '{handler}'.")
-            print(
-                "Expecting 'manual', a Python function (i.e. 'hw_01:P1'), or a shell command"
-            )
-            print("Tried to run handler as a shell command but raised an exception")
-            print(f"Exception: {e}")
+    try:
+        print(f"  Calling '{handler}' as shell command")
+        ret = run(handler, shell=True, stdout=PIPE, stderr=STDOUT)
+        if ret.returncode == 0:
+            return {"result": True, "notes": notes}
+        else:
+            notes.append("Command finished with a non-zero exit code.")
+            notes.append(f"command: {handler}.")
+            notes.append("command output:" + ret.stdout.decode("utf-8"))
+            return {"result": False, "notes": notes}
+    except Exception as e:
+        print(f"Unrecognized handler '{handler}'.")
+        print(
+            "Expecting 'manual', a Python function (i.e. 'hw_01:P1'), or a shell command"
+        )
+        print("Tried to run handler as a shell command but raised an exception")
+        print(f"Exception: {e}")
 
-        return {"result": None, "notes": []}
-
+    return {"result": None, "notes": notes}
 
 @app.command()
-def print_summary(results_file: Path):
+def print_summary(config_file: Path):
     """ """
+    if not config_file.exists():
+        print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
+        raise typer.Exit(code=1)
+
+    config = fspathtree(yaml.safe_load(config_file.open()))
+    results_file = Path(config["results"])
+
     if not results_file.exists():
         print(f"[bold red]Results file '{results_file}' does not exists.[/bold red]")
         raise typer.Exit(1)
