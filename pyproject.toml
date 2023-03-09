@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyassignmentgrader"
-version = "0.1.0"
+version = "0.1"
 description = ""
 authors = ["CD Clark III <clifton.clark@gmail.com>"]
 readme = "README.md"
@@ -11,7 +11,7 @@ fspathtree = "^0.8"
 pytest = "^7.2.2"
 pytest-pudb = "^0.7.0"
 pyyaml = "^6.0"
-typer = {extras = ["all"], version = "^0.7.0"}
+typer = {extras = ["all"], version = "0.1"}
 
 
 [build-system]
