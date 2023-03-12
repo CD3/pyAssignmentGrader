@@ -126,7 +126,9 @@ class GradingResults:
             weight = check.get("weight", 1)
             add_line(f"  weight: {weight}")
 
-            if check["result"] is True:
+            if check["result"] is None:
+                add_line(f"  result: Not Ran")
+            elif check["result"] is True:
                 add_line(f"  result: PASS")
             else:
                 add_line(f"  result: FAIL")
@@ -137,7 +139,7 @@ class GradingResults:
                     add_line(f"      {n}")
 
 
-            if "secondary_checks" in check:
+            if check['result'] == False and "secondary_checks" in check:
                 add_line(f"  Secondary Checks:")
                 add_line(f"    weight: {check['secondary_checks/weight']}")
                 lines += self.__checks_summary(

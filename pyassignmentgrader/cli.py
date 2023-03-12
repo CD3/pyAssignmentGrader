@@ -1,6 +1,7 @@
 import typer
 import yaml
 import sys
+import inspect
 from rich import print
 from pathlib import Path
 from fspathtree import fspathtree
@@ -17,6 +18,13 @@ def make_import_statement(func_spec: str):
     function_toks = function_call.split('(')
     function_name = function_toks[0]
     import_statement = f"from {module_name} import {function_name}"
+    import_statement = f'''
+try:
+    {import_statement}
+except Exception as e:
+    print("[red]There was a problem trying to import {function_name} from {module_name}.[/red]")
+    print(f"[red]Error Message: {{e}}[/red]")
+'''
     return import_statement
 
 
@@ -24,9 +32,14 @@ def make_function_call(func_spec: str):
     module_name, function_call = func_spec.split(":")
     function_toks = function_call.split('(')
     function_name = function_toks[0]
-    function_args = ("("+function_toks[1]) if len(function_toks) > 1 else "()"
+    if len(function_toks) > 1:
+        function_args = ("("+function_toks[1])
+    else:
+        exec(make_import_statement(func_spec))
+        function_args = str(eval(f"inspect.signature({function_name})"))
 
-    return function_name+function_args
+
+    return function_name + function_args
 
 
 @app.command()
@@ -133,7 +146,12 @@ def setup_grading_files(
                 exec( make_import_statement(conf['cmd'] ) )
                 wd = Path(conf.get("working_directory",".")).absolute()
                 with working_dir(wd):
-                    eval(make_function_call(conf['cmd']))
+                    try:
+                        eval(make_function_call(conf['cmd']))
+                    except Exception as e:
+                        print(f"[red]There was an error trying to evaluate function call references by '{conf['cmd']}'[/red]")
+                        print(f"[red]Error Message: {e}[/red]")
+
             if conf['type'] == 'shell':
                 print(f"[green]cmd[/green]: {conf['cmd']}")
                 ret = run(conf['cmd'], shell=True,cwd=conf['working_directory'])
@@ -211,12 +229,16 @@ def run_checks(
         Path(), "-d", help="The working directory to run tests from."
     ),
     student: str = typer.Option(
-        None, "-s", help="Only run checks for given student."
+        None, "--student","-s", help="Only run checks for given student."
+    ),
+    tag: str = typer.Option(
+        None, "--tag","-t", help="Only run checks for checks with given tag."
     ),
 ):
     """
     Run checks in a grading results file that have not been run yet.
     """
+    config_file = config_file.absolute()
     if not config_file.exists():
         print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
         raise typer.Exit(code=1)
@@ -233,60 +255,40 @@ def run_checks(
 
     sys.path.append(str(results_file.absolute().parent))
 
-    with working_dir(working_directory) as assignment_dir:
-        for student_name in results.data.tree:
-            if student and student_name != student:
-                continue
+    try:
+        with working_dir(working_directory) as assignment_dir:
+            for student_name in results.data.tree:
+                if student and student_name != student:
+                    continue
 
-            print()
-            print()
-            print(f"Grading assignment for {student_name}")
+                print()
+                print()
+                print(f"Grading assignment for {student_name}")
 
-            wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
-            with working_dir(wd) as student_dir:
-                ctx = dict()
-                ctx['student_name'] = student_name
-                ctx['student_dir'] = student_dir
-                ctx['list_of_checks'] = results.data[student_name]['checks']
-                run_list_of_checks( results.data[student_name]['checks'], ctx, force)
+                wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
+                with working_dir(wd) as student_dir:
+                    ctx = fspathtree()
+                    ctx['student_name'] = student_name
+                    ctx['student_dir'] = student_dir
+                    ctx['list_of_checks'] = results.data[student_name]['checks']
+                    ctx['workspace_directory'] = config_file.parent/config['workspace_directory']
+                    run_list_of_checks( results.data[student_name]['checks'], tag, ctx, force)
 
-            continue
-
-            wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
-            with working_dir(wd) as student_dir:
-                for key in list(
-                    results.data.get_all_leaf_node_paths(
-                        predicate=lambda p: len(p.parts) > 1
-                        and p.parts[1] == student_name
-                        and p.name == "result"
-                    )
-                ):
-                    print()
-                    ret = run_check(results.data[key / ".."], force)
-                    results.data[key] = ret["result"]
-                    if ret['result'] is True:
-                        print("[green]PASS[/green]")
-                    if ret['result'] is False:
-                        print("[red]FAIL[/red]")
-                    if ret['result'] is None:
-                        print("[yellow]NO RESULT[/yellow]")
-                    print("NOTES:")
-                    for n in ret['notes']:
-                        print("  ",n)
-                    results.data[key / "../notes"].tree.clear()
-                    # if len(ret['notes']) > 0:
-                    # if key/'../notes' not in results.data:
-                    for note in ret["notes"]:
-                        results.data[key / "../notes"].tree.append(note)
-    results.dump(results_file.open("w"))
+    except Exception as e:
+        print("[red]An exception was thrown while trying to run checsk.[/red]")
+        print(f"[red]Error Message: {e}[/red]")
+    finally:
+        results.dump(results_file.open("w"))
 
 
 
 
 
 
-def run_list_of_checks(list_of_checks, ctx, force=False):
+def run_list_of_checks(list_of_checks, tag, ctx, force=False):
     for check in list_of_checks:
+        if check.get("tag","NO-TAG") != tag:
+            continue
         wd = Path(check.get("working_directory",".")).absolute()
         with working_dir(wd) as check_dir:
             print()
@@ -311,7 +313,7 @@ def run_list_of_checks(list_of_checks, ctx, force=False):
 
                 wwd = Path(check.get("secondary_checks/working_directory",".")).absolute()
                 with working_dir(wwd) as secondary_checks_dir:
-                    run_list_of_checks( check['secondary_checks/checks'], ctx )
+                    run_list_of_checks( check['secondary_checks/checks'], tag, ctx )
 
 
 
@@ -328,14 +330,16 @@ def run_check(check,ctx,force=False):
     if handler == "manual":
         print("Manual Check")
         response = ""
-        while response.lower() not in ["y", "n", "yes", "no"]:
+        while response.lower() not in ["y", "n", "yes", "no", "s", "skip"]:
             if len(response) > 0:
                 print(f"Unrecognized response [yellow]{response}[/yellow]")
             response = input("Did this check pass? [y/n] ")
+        if response.lower().startswith("s"):
+            return {"result": None, "notes": notes}
+
         result = response.lower().startswith("y")
 
-        response = input("Notes? [y/n] ")
-        if response.lower().startswith("y"):
+        if response[0].islower():
             response = input("Add note (enter 'EOF' to stop): ")
             while response.lower() != "eof":
                 notes.append(response)
@@ -348,7 +352,12 @@ def run_check(check,ctx,force=False):
             handler = handler.format( name=check.path().parts[1] )
         print(f"  Calling '{handler}' as Python function")
         exec(make_import_statement(handler))
-        return eval(make_function_call(handler))
+        try:
+            return eval(make_function_call(handler))
+        except Exception as e:
+            print(f"[red]There was an error trying to evaluate function call references by '{handler}'[/red]")
+            print(f"[red]Error Message: {e}[/red]")
+            return {"result": None, "notes": notes}
 
     try:
         print(f"  Calling '{handler}' as shell command")
@@ -367,6 +376,7 @@ def run_check(check,ctx,force=False):
         )
         print("Tried to run handler as a shell command but raised an exception")
         print(f"Exception: {e}")
+        return {"result": None, "notes": notes}
 
     return {"result": None, "notes": notes}
 
@@ -384,8 +394,20 @@ def print_summary(config_file: Path):
         print(f"[bold red]Results file '{results_file}' does not exists.[/bold red]")
         raise typer.Exit(1)
 
-    results = GradingResults()
-    results.load(results_file.open())
-    results.score()
+    try:
 
-    print("\n".join(results.summary()))
+        results = GradingResults()
+        results.load(results_file.open())
+        warnings,errors = results.score()
+        for w in warnings:
+            print(f"[yellow]{w}[/yellow]")
+        for e in errors:
+            print(f"[red]{e}[/red]")
+        print("\n".join(results.summary()))
+
+    except Exception as e:
+        print("[red]An exception was thrown while trying to score results.[/red]")
+        print(f"[red]Error Message: {e}[/red]")
+
+    finally:
+        pass
