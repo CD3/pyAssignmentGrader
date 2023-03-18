@@ -6,17 +6,36 @@ jdoe:
     tag: Problem 1
     weight: 1
     result: null
-    notes: []
+    notes: ["line one","line two"]
   - desc: Running command to check that something is true...
     handler: test -f tmp.txt
     tag: Problem 2
     weight: 1
-    result: true
+    result: null
     notes: []
   - desc: Running python funcgtion to check that something is true...
     handler: HW_01_checks:Problem3
     tag: Problem 3
     weight: 1
+    result: null
+    notes:
+      - line one
+      - line two
+      - line three
+      - line four
+      - really long line that will surely go off the end of the screen, but is OK, because it will be clipped.
+  - desc: Checking that file named `tmp-2.txt` exists.
+    handler: test -f tmp-2.txt
+    tag: Problem 4
+    weight: 1
+    secondary_checks:
+      weight: 0.9
+      checks:
+      - desc: Checking that `tmp-2.csv` exists.
+        handler: test -f tmp-2.csv
+        tag: Problem 4
+        result: null
+        notes: []
     result: null
     notes: []
 rshackleford:
@@ -32,11 +51,25 @@ rshackleford:
     handler: test -f tmp.txt
     tag: Problem 2
     weight: 1
-    result: true
+    result: null
     notes: []
   - desc: Running python funcgtion to check that something is true...
     handler: HW_01_checks:Problem3
     tag: Problem 3
     weight: 1
+    result: null
+    notes: []
+  - desc: Checking that file named `tmp-2.txt` exists.
+    handler: test -f tmp-2.txt
+    tag: Problem 4
+    weight: 1
+    secondary_checks:
+      weight: 0.9
+      checks:
+      - desc: Checking that `tmp-2.csv` exists.
+        handler: test -f tmp-2.csv
+        tag: Problem 4
+        result: null
+        notes: []
     result: null
     notes: []

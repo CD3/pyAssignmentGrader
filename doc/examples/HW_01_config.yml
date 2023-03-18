@@ -1,0 +1,7 @@
+students:
+  - name : jdoe
+    working_directory : HW_01_{name}
+  - name: rshackleford
+    working_directory : HW_01_{name}
+rubric: HW_01_rubric.yml
+results: HW_01_results.yml

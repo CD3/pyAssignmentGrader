@@ -16,3 +16,9 @@ checks:
   handler: test -f tmp-2.txt
   tag: Problem 4
   weight: 1
+  secondary_checks:
+    weight: 0.9
+    checks:
+      - desc: Checking that `tmp-2.csv` exists.
+        handler: test -f tmp-2.csv
+        tag: Problem 4

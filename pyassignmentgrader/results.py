@@ -44,6 +44,11 @@ class GradingResults:
 
         self.__render_working_directories()
 
+    # def get_all_check_keys(self):
+    #     self.data.get_all_leaf_node_paths(
+    #             predicate
+    #             )
+
 
     def __score(self, list_of_checks):
         warnings = []

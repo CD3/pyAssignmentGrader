@@ -9,6 +9,7 @@ from pyassignmentgrader import *
 from subprocess import run, PIPE, STDOUT
 
 from .utils import *
+from .ui import console as console_view
 
 app = typer.Typer()
 
@@ -234,6 +235,9 @@ def run_checks(
     tag: str = typer.Option(
         None, "--tag","-t", help="Only run checks for checks with given tag."
     ),
+    ui: str = typer.Option(
+        "tui", "--user-interface","-u", help="Select user interface to use."
+        )
 ):
     """
     Run checks in a grading results file that have not been run yet.
@@ -251,34 +255,48 @@ def run_checks(
         raise typer.Exit(1)
     results = GradingResults()
     results.load(results_file.open())
-    results_file.with_suffix(results_file.suffix).write_text(results_file.read_text())
 
     sys.path.append(str(results_file.absolute().parent))
 
-    try:
-        with working_dir(working_directory) as assignment_dir:
-            for student_name in results.data.tree:
-                if student and student_name != student:
-                    continue
+    if ui == "cli":
+        try:
+            with working_dir(working_directory) as assignment_dir:
+                for student_name in results.data.tree:
+                    if student and student_name != student:
+                        continue
 
-                print()
-                print()
-                print(f"Grading assignment for {student_name}")
+                    print()
+                    print()
+                    print(f"Grading assignment for {student_name}")
 
-                wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
-                with working_dir(wd) as student_dir:
-                    ctx = fspathtree()
-                    ctx['student_name'] = student_name
-                    ctx['student_dir'] = student_dir
-                    ctx['list_of_checks'] = results.data[student_name]['checks']
-                    ctx['workspace_directory'] = config_file.parent/config['workspace_directory']
-                    run_list_of_checks( results.data[student_name]['checks'], tag, ctx, force)
+                    wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
+                    with working_dir(wd) as student_dir:
+                        ctx = fspathtree()
+                        ctx['student_name'] = student_name
+                        ctx['student_dir'] = student_dir
+                        ctx['list_of_checks'] = results.data[student_name]['checks']
+                        ctx['workspace_directory'] = config_file.parent/config['workspace_directory']
+                        run_list_of_checks( results.data[student_name]['checks'], tag, ctx, force)
 
-    except Exception as e:
-        print("[red]An exception was thrown while trying to run checsk.[/red]")
-        print(f"[red]Error Message: {e}[/red]")
-    finally:
-        results.dump(results_file.open("w"))
+        except Exception as e:
+            print("[red]An exception was thrown while trying to run checsk.[/red]")
+            print(f"[red]Error Message: {e}[/red]")
+        finally:
+            results.dump(results_file.open("w"))
+
+    elif ui == "tui":
+
+        check_paths = list(sorted( map( lambda p : results.data[p/'..'].path(),  results.data.find("/*/checks/*/result") ), key=lambda p : p.parts[3]))
+        controller = console_view.GradingItemController(results,check_paths)
+        view = console_view.GradingItemView(controller)
+
+        loop = console_view.urwid.MainLoop(view.get_ui(),view.get_palette(),unhandled_input=view.input_handler)
+        loop.run()
+
+    else:
+        print(f"[red]Unrecognized user interface '{ui}'[/red]")
+        print(f"[red]Please pass 'cli' or 'tui'[/red]")
+        raise typer.Exit(1)
 
 
 
