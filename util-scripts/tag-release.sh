@@ -33,7 +33,7 @@ echo "cd'ing to root directory ($root)"
 cd $root
 
 echo "looking for pre-tag-release.sh to run"
-script=$(find ./ -path ./externals -prune -o -name 'pre-tag-release.sh' -print)
+script=$(find ./ -prune -o -name 'pre-tag-release.sh' -print)
 [[ $script != "" ]] && echo "Found: $script" && $script
 [[ $script != "" ]] || echo "Did NOT find a script to run."
 
