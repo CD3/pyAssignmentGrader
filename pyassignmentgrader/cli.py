@@ -226,7 +226,7 @@ def write_example_rubric_file(
 def run_checks(
     config_file: Path,
     force: bool = typer.Option(False, "-f", help="Force all checks to run."),
-    working_directory: Path = typer.Option(
+    assignment_directory: Path = typer.Option(
         Path(), "-d", help="The working directory to run tests from."
     ),
     student: str = typer.Option(
@@ -258,9 +258,12 @@ def run_checks(
 
     sys.path.append(str(results_file.absolute().parent))
 
+    workspace_directory = assignment_directory/config.get('workspace_directory','.')
+
+
     if ui == "cli":
         try:
-            with working_dir(working_directory) as assignment_dir:
+            with working_dir(workspace_directory):
                 for student_name in results.data.tree:
                     if student and student_name != student:
                         continue
@@ -275,7 +278,7 @@ def run_checks(
                         ctx['student_name'] = student_name
                         ctx['student_dir'] = student_dir
                         ctx['list_of_checks'] = results.data[student_name]['checks']
-                        ctx['workspace_directory'] = config_file.parent/config['workspace_directory']
+                        ctx['workspace_directory'] = config_file.parent/config.get('workspace_directory','grading_workspace')
                         run_list_of_checks( results.data[student_name]['checks'], tag, ctx, force)
 
         except Exception as e:
@@ -305,7 +308,7 @@ def run_checks(
 
 def run_list_of_checks(list_of_checks, tag, ctx, force=False):
     for check in list_of_checks:
-        if check.get("tag","NO-TAG") != tag:
+        if tag is not None and check.get("tag","NO-TAG") != tag:
             continue
         wd = Path(check.get("working_directory",".")).absolute()
         with working_dir(wd) as check_dir:

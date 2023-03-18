@@ -7,6 +7,7 @@ import fspathtree
 import os
 import pathlib
 import yaml
+import pudb
 
 
 
@@ -50,7 +51,6 @@ def setup_basic_grading_example_without_secondary_checks(tmp_path_factory):
         rubric = fspathtree.fspathtree()
         config = fspathtree.fspathtree()
 
-        rubric["workspace_directory"] = "workspace"
         rubric["checks/0/tag"] = "P1"
         rubric["checks/0/desc"] = "Check for P1"
         rubric["checks/0/handler"] = "test -e tmp.txt"
@@ -60,6 +60,7 @@ def setup_basic_grading_example_without_secondary_checks(tmp_path_factory):
         rubric["checks/1/handler"] = "HW_00_checks:P2Check"
         rubric["checks/1/working_directory"] = "{name}"
 
+        config["workspace_directory"] = "workspace"
         config["students/0/name"] = "jdoe"
         config["rubric"] = "HW-00-rubric.yml"
         config["results"] = "HW-00-results.yml"
@@ -88,7 +89,6 @@ def setup_basic_grading_example_with_secondary_checks(tmp_path_factory):
         rubric = fspathtree.fspathtree()
         config = fspathtree.fspathtree()
 
-        rubric["workspace_directory"] = "workspace"
         rubric["checks/0/tag"] = "P1"
         rubric["checks/0/desc"] = "Check for P1"
         rubric["checks/0/handler"] = "test -e tmp.txt"
@@ -103,6 +103,7 @@ def setup_basic_grading_example_with_secondary_checks(tmp_path_factory):
         rubric["checks/1/secondary_checks/checks/0/weight"] = 1
         rubric["checks/1/secondary_checks/checks/0/handler"] = "pwd && ls && test -e tmp.txt"
 
+        config["workspace_directory"] = "workspace"
         config["students/0/name"] = "jdoe"
         config["rubric"] = "HW-00-rubric.yml"
         config["results"] = "HW-00-results.yml"
@@ -140,7 +141,7 @@ def test_grading_example(setup_simple_grading_example):
         assert grading_results['jdoe/checks/0/result'] == None
 
 
-        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml"])
+        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml","--user-interface","cli"])
         print(rtn.stdout)
 
         grading_results = fspathtree.fspathtree(yaml.safe_load(pathlib.Path("HW-00-results.yml").open()))
@@ -205,12 +206,12 @@ def test_updating_grading_results_file(setup_simple_grading_example):
         assert grading_results['jdoe/checks/1/result'] == None
 
 
-def test_grading_simple_assignment(setup_basic_grading_example_without_secondary_checks):
+def test_grading_simple_assignment_without_secondary_checks(setup_basic_grading_example_without_secondary_checks):
     with working_dir(setup_basic_grading_example_without_secondary_checks) as d:
         rtn = runner.invoke(app, ["setup-grading-files","HW-00-config.yml"])
         print(rtn.stdout)
         assert rtn.exit_code == 0
-        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml"])
+        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml","--user-interface","cli"])
         print(rtn.stdout)
         if rtn.exception:
             print(rtn.exception)
@@ -242,7 +243,7 @@ def test_grading_simple_assignment_with_secondary_checks(setup_basic_grading_exa
         rtn = runner.invoke(app, ["setup-grading-files","HW-00-config.yml"])
         print(rtn.stdout)
         assert rtn.exit_code == 0
-        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml"])
+        rtn = runner.invoke(app, ["run-checks","HW-00-config.yml","--user-interface","cli"])
         print(rtn.stdout)
         if rtn.exception:
             print(rtn.exception)
