@@ -22,3 +22,7 @@ checks:
       - desc: Checking that `tmp-2.csv` exists.
         handler: test -f tmp-2.csv
         tag: Problem 4
+- desc: Checking if file (or alias) exists
+  handler: pyassignmentgrader.utils:CheckFileExists(filename="named-file.txt", cwd=".", aliases=["miss-named-file.txt"])
+  tag: Problem 5
+  weight: 1

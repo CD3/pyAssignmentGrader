@@ -1,6 +1,7 @@
 import fspathtree as ft
 import pprint
 import yaml
+import pathlib
 from .rubric import GradingRubric
 
 # import tomllib
@@ -10,16 +11,17 @@ class GradingResults:
     def __init__(self):
         self.data = ft.fspathtree()
 
-    def load(self, filehandle):
-        self.data = ft.fspathtree(yaml.safe_load(filehandle))
+    def load(self, file:pathlib.Path):
+        self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
 
-    def dump(self, filehandle):
-        text = yaml.safe_dump(self.data.tree, sort_keys=False)
-        filehandle.write(text)
+    def dump(self, file:pathlib.Path):
+        text = yaml.dump(self.data.tree, sort_keys=False)
+        file.write_text(text)
+        
 
     def __render_working_directories(self):
             for key in self.data.get_all_leaf_node_paths(
-                predicate=lambda p: p.name == "working_directory"
+                predicate=lambda p: p.name == "working_directory" or p.name == "handler"
             ):
                 name = key.parts[1]
                 self.data[key] = self.data[key].format(name=name)

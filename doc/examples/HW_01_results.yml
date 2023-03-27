@@ -6,24 +6,22 @@ jdoe:
     tag: Problem 1
     weight: 1
     result: null
-    notes: ["line one","line two"]
+    notes:
+    - ''
   - desc: Running command to check that something is true...
     handler: test -f tmp.txt
     tag: Problem 2
     weight: 1
     result: null
-    notes: []
+    notes:
+    - ''
   - desc: Running python funcgtion to check that something is true...
     handler: HW_01_checks:Problem3
     tag: Problem 3
     weight: 1
     result: null
     notes:
-      - line one
-      - line two
-      - line three
-      - line four
-      - really long line that will surely go off the end of the screen, but is OK, because it will be clipped.
+    - ''
   - desc: Checking that file named `tmp-2.txt` exists.
     handler: test -f tmp-2.txt
     tag: Problem 4
@@ -37,7 +35,24 @@ jdoe:
         result: null
         notes: []
     result: null
-    notes: []
+    notes:
+    - ''
+  - desc: Checking if file (or alias) exists
+    handler: pyassignmentgrader.utils:CheckFileExists(filename="named-file.txt", cwd=".",
+      aliases=["miss-named-file.txt"])
+    tag: Problem 5
+    weight: 1
+    result: false
+    notes:
+    - Did not find 'named-file.txt' in '.'.
+    - 'Found these files in ''.'':'
+    - '  HW_01_results.yml'
+    - '  HW_01_rubric.yml'
+    - '  __pycache__'
+    - '  HW_01_checks.py'
+    - '  .pytest_cache'
+    - '  HW_01_config.yml'
+    - '  HW-01'
 rshackleford:
   working_directory: rshackleford/HW-01-rshackleford
   checks:
@@ -46,19 +61,22 @@ rshackleford:
     tag: Problem 1
     weight: 1
     result: null
-    notes: []
+    notes:
+    - ''
   - desc: Running command to check that something is true...
     handler: test -f tmp.txt
     tag: Problem 2
     weight: 1
     result: null
-    notes: []
+    notes:
+    - ''
   - desc: Running python funcgtion to check that something is true...
     handler: HW_01_checks:Problem3
     tag: Problem 3
     weight: 1
     result: null
-    notes: []
+    notes:
+    - ''
   - desc: Checking that file named `tmp-2.txt` exists.
     handler: test -f tmp-2.txt
     tag: Problem 4
@@ -71,5 +89,13 @@ rshackleford:
         tag: Problem 4
         result: null
         notes: []
+    result: null
+    notes:
+    - ''
+  - desc: Checking if file (or alias) exists
+    handler: pyassignmentgrader.utils:CheckFileExists(filename="named-file.txt", cwd=".",
+      aliases=["miss-named-file.txt"])
+    tag: Problem 5
+    weight: 1
     result: null
     notes: []

@@ -16,29 +16,28 @@ app = typer.Typer()
 
 def make_import_statement(func_spec: str):
     module_name, function_call = func_spec.split(":")
-    function_toks = function_call.split('(')
+    function_toks = function_call.split("(")
     function_name = function_toks[0]
     import_statement = f"from {module_name} import {function_name}"
-    import_statement = f'''
+    import_statement = f"""
 try:
     {import_statement}
 except Exception as e:
     print("[red]There was a problem trying to import {function_name} from {module_name}.[/red]")
     print(f"[red]Error Message: {{e}}[/red]")
-'''
+"""
     return import_statement
 
 
 def make_function_call(func_spec: str):
     module_name, function_call = func_spec.split(":")
-    function_toks = function_call.split('(')
+    function_toks = function_call.split("(")
     function_name = function_toks[0]
     if len(function_toks) > 1:
-        function_args = ("("+function_toks[1])
+        function_args = "(" + function_toks[1]
     else:
         exec(make_import_statement(func_spec))
         function_args = str(eval(f"inspect.signature({function_name})"))
-
 
     return function_name + function_args
 
@@ -75,7 +74,7 @@ def setup_grading_files(
         print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
         raise typer.Exit(code=1)
 
-    config = fspathtree(yaml.safe_load(config_file.open()))
+    config = fspathtree(yaml.safe_load(config_file.read_text()))
     results_file = Path(config["results"])
     rubric_file = Path(config["rubric"])
 
@@ -90,7 +89,7 @@ def setup_grading_files(
         raise typer.Exit(code=1)
 
     rubric = GradingRubric()
-    rubric.load(rubric_file.open())
+    rubric.load(rubric_file)
 
     if "students" not in config:
         print(
@@ -104,61 +103,61 @@ def setup_grading_files(
             results.add_student(student["name"], rubric)
 
     elif update:
-        results.load(results_file.open())
+        results.load(results_file)
         for student in config["students"]:
             results.update_student(student["name"], rubric)
 
-    results.dump(results_file.open("w"))
-
+    results.dump(results_file)
 
     sys.path.append(str(config_file.absolute().parent))
-    for preproc in config.get('preprocessing',[]):
-        conf = {'type':None,'cmd':'','working_directory': Path().absolute()}
+    for preproc in config.get("preprocessing", []):
+        conf = {"type": None, "cmd": "", "working_directory": Path().absolute()}
 
-        if type(preproc) is str and ':' in preproc:
-            conf['type'] = 'python'
-            conf['cmd'] = preproc
+        if type(preproc) is str and ":" in preproc:
+            conf["type"] = "python"
+            conf["cmd"] = preproc
 
-        if type(preproc) is str and ':' not in preproc:
-            conf['type'] = 'shell'
-            conf['cmd'] = preproc
+        if type(preproc) is str and ":" not in preproc:
+            conf["type"] = "shell"
+            conf["cmd"] = preproc
 
         if type(preproc) is fspathtree:
             conf = preproc.tree
-            if 'type' not in conf:
-                if ":" in conf['cmd']:
-                    conf['type'] = 'python'
+            if "type" not in conf:
+                if ":" in conf["cmd"]:
+                    conf["type"] = "python"
                 else:
-                    conf['type'] = 'shell'
-
+                    conf["type"] = "shell"
 
         # expand to multiple commands if needed
-        if '{name}' in conf['cmd']:
+        if "{name}" in conf["cmd"]:
             confs = []
             for student in config["students"]:
                 confs.append(copy.deepcopy(conf))
-                confs[-1]['cmd'] = confs[-1]['cmd'].format(name=student['name'])
+                confs[-1]["cmd"] = confs[-1]["cmd"].format(name=student["name"])
         else:
             confs = [conf]
 
-
         for conf in confs:
-            if conf['type'] == 'python':
-                exec( make_import_statement(conf['cmd'] ) )
-                wd = Path(conf.get("working_directory",".")).absolute()
+            if conf["type"] == "python":
+                exec(make_import_statement(conf["cmd"]))
+                wd = Path(conf.get("working_directory", ".")).absolute()
                 with working_dir(wd):
                     try:
-                        eval(make_function_call(conf['cmd']))
+                        eval(make_function_call(conf["cmd"]))
                     except Exception as e:
-                        print(f"[red]There was an error trying to evaluate function call references by '{conf['cmd']}'[/red]")
+                        print(
+                            f"[red]There was an error trying to evaluate function call references by '{conf['cmd']}'[/red]"
+                        )
                         print(f"[red]Error Message: {e}[/red]")
 
-            if conf['type'] == 'shell':
+            if conf["type"] == "shell":
                 print(f"[green]cmd[/green]: {conf['cmd']}")
-                ret = run(conf['cmd'], shell=True,cwd=conf['working_directory'])
+                ret = run(conf["cmd"], shell=True, cwd=conf["working_directory"])
                 if ret.returncode != 0:
-                    print(f"[yellow]Preprocessing command `{conf['cmd']}` returned non-zero exist status.[/yellow]")
-
+                    print(
+                        f"[yellow]Preprocessing command `{conf['cmd']}` returned non-zero exist status.[/yellow]"
+                    )
 
 
 @app.command()
@@ -185,7 +184,8 @@ def write_example_config_file(
     data["preprocessing/1/cmd"] = "tar -xjf ../gradebook*tar.bz2"
     data["preprocessing/1/working_directory"] = "HW-01-grading"
 
-    yaml.safe_dump(data.tree, config_file.open("w"))
+    config_file.write_text(yaml.safe_dump(data.tree))
+
 
 @app.command()
 def write_example_rubric_file(
@@ -219,7 +219,7 @@ def write_example_rubric_file(
     data["checks/2/handler"] = "HW_01_checks:Problem3"
     data["checks/2/working_directory"] = "."
 
-    yaml.safe_dump(data.tree, rubric_file.open("w"))
+    rubric_file.write_text(yaml.safe_dump(data.tree))
 
 
 @app.command()
@@ -230,14 +230,14 @@ def run_checks(
         Path(), "-d", help="The working directory to run tests from."
     ),
     student: str = typer.Option(
-        None, "--student","-s", help="Only run checks for given student."
+        None, "--student", "-s", help="Only run checks for given student."
     ),
     tag: str = typer.Option(
-        None, "--tag","-t", help="Only run checks for checks with given tag."
+        None, "--tag", "-t", help="Only run checks for checks with given tag."
     ),
     ui: str = typer.Option(
-        "tui", "--user-interface","-u", help="Select user interface to use."
-        )
+        "tui", "--user-interface", "-u", help="Select user interface to use."
+    ),
 ):
     """
     Run checks in a grading results file that have not been run yet.
@@ -247,19 +247,18 @@ def run_checks(
         print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
         raise typer.Exit(code=1)
 
-    config = fspathtree(yaml.safe_load(config_file.open()))
+    config = fspathtree(yaml.safe_load(config_file.read_text()))
     results_file = Path(config["results"])
 
     if not results_file.exists():
         print(f"[bold red]Results file '{results_file}' does not exists.[/bold red]")
         raise typer.Exit(1)
     results = GradingResults()
-    results.load(results_file.open())
+    results.load(results_file)
 
     sys.path.append(str(results_file.absolute().parent))
 
-    workspace_directory = assignment_directory/config.get('workspace_directory','.')
-
+    workspace_directory = assignment_directory / config.get("workspace_directory", ".")
 
     if ui == "cli":
         try:
@@ -272,14 +271,20 @@ def run_checks(
                     print()
                     print(f"Grading assignment for {student_name}")
 
-                    wd = Path(results.data.get(f"{student_name}/working_directory", ".")).absolute()
+                    wd = Path(
+                        results.data.get(f"{student_name}/working_directory", ".")
+                    ).absolute()
                     with working_dir(wd) as student_dir:
                         ctx = fspathtree()
-                        ctx['student_name'] = student_name
-                        ctx['student_dir'] = student_dir
-                        ctx['list_of_checks'] = results.data[student_name]['checks']
-                        ctx['workspace_directory'] = config_file.parent/config.get('workspace_directory','grading_workspace')
-                        run_list_of_checks( results.data[student_name]['checks'], tag, ctx, force)
+                        ctx["student_name"] = student_name
+                        ctx["student_dir"] = student_dir
+                        ctx["list_of_checks"] = results.data[student_name]["checks"]
+                        ctx["workspace_directory"] = config_file.parent / config.get(
+                            "workspace_directory", "grading_workspace"
+                        )
+                        run_list_of_checks(
+                            results.data[student_name]["checks"], tag, ctx, force
+                        )
 
         except Exception as e:
             print("[red]An exception was thrown while trying to run checsk.[/red]")
@@ -289,12 +294,30 @@ def run_checks(
 
     elif ui == "tui":
 
-        check_paths = list(sorted( map( lambda p : results.data[p/'..'].path(),  results.data.find("/*/checks/*/result") ), key=lambda p : p.parts[3]))
-        controller = console_view.GradingItemController(results,check_paths)
-        view = console_view.GradingItemView(controller)
+        current_directory = pathlib.Path().absolute()
+        try:
+            check_paths = list(
+                sorted(
+                    map(
+                        lambda p: results.data[p / ".."].path(),
+                        results.data.find("/*/checks/*/result"),
+                    ),
+                    key=lambda p: int(p.parts[3]),
+                )
+            )
+            controller = console_view.GradingItemController(results, check_paths)
+            view = controller.view
 
-        loop = console_view.urwid.MainLoop(view.get_ui(),view.get_palette(),unhandled_input=view.input_handler)
-        loop.run()
+            loop = console_view.urwid.MainLoop(
+                view.get_ui(),
+                view.get_palette(),
+                input_filter=view.input_filter,
+                unhandled_input=view.input_handler,
+            )
+            loop.run()
+        finally:
+            os.chdir(current_directory)
+            results.dump(results_file)
 
     else:
         print(f"[red]Unrecognized user interface '{ui}'[/red]")
@@ -302,44 +325,40 @@ def run_checks(
         raise typer.Exit(1)
 
 
-
-
-
-
 def run_list_of_checks(list_of_checks, tag, ctx, force=False):
     for check in list_of_checks:
-        if tag is not None and check.get("tag","NO-TAG") != tag:
+        if tag is not None and check.get("tag", "NO-TAG") != tag:
             continue
-        wd = Path(check.get("working_directory",".")).absolute()
+        wd = Path(check.get("working_directory", ".")).absolute()
         with working_dir(wd) as check_dir:
             print()
-            ret = run_check(check,ctx,force)
+            ret = run_check(check, ctx, force)
             check["result"] = ret["result"]
             check["notes"] = ret["notes"]
             # check["notes"].tree.clear()
             # for note in ret["notes"]:
             #     check["notes"].tree.append(note)
 
-            if ret['result'] is True:
+            if ret["result"] is True:
                 print("  [green]PASS[/green]")
-            if ret['result'] is False:
+            if ret["result"] is False:
                 print("  [red]FAIL[/red]")
-            if ret['result'] is None:
+            if ret["result"] is None:
                 print("  [yellow]NO RESULT[/yellow]")
             print("  NOTES:")
-            for n in ret['notes']:
-                print("    ",n)
+            for n in ret["notes"]:
+                print("    ", n)
 
-            if check["result"] is False and 'secondary_checks' in check:
+            if check["result"] is False and "secondary_checks" in check:
 
-                wwd = Path(check.get("secondary_checks/working_directory",".")).absolute()
+                wwd = Path(
+                    check.get("secondary_checks/working_directory", ".")
+                ).absolute()
                 with working_dir(wwd) as secondary_checks_dir:
-                    run_list_of_checks( check['secondary_checks/checks'], tag, ctx )
+                    run_list_of_checks(check["secondary_checks/checks"], tag, ctx)
 
 
-
-
-def run_check(check,ctx,force=False):
+def run_check(check, ctx, force=False):
     check_name = f"{ctx['student_name']}>{check['tag']}: {check['desc']}"
     notes = []
     if not force and check["result"] is not None:
@@ -370,13 +389,15 @@ def run_check(check,ctx,force=False):
 
     if ":" in handler:
         if "{name}" in handler:
-            handler = handler.format( name=check.path().parts[1] )
+            handler = handler.format(name=check.path().parts[1])
         print(f"  Calling '{handler}' as Python function")
         exec(make_import_statement(handler))
         try:
             return eval(make_function_call(handler))
         except Exception as e:
-            print(f"[red]There was an error trying to evaluate function call references by '{handler}'[/red]")
+            print(
+                f"[red]There was an error trying to evaluate function call references by '{handler}'[/red]"
+            )
             print(f"[red]Error Message: {e}[/red]")
             return {"result": None, "notes": notes}
 
@@ -401,6 +422,7 @@ def run_check(check,ctx,force=False):
 
     return {"result": None, "notes": notes}
 
+
 @app.command()
 def print_summary(config_file: Path):
     """ """
@@ -408,7 +430,7 @@ def print_summary(config_file: Path):
         print(f"[bold red]Config file '{config_file}' does not exist.[/bold red]")
         raise typer.Exit(code=1)
 
-    config = fspathtree(yaml.safe_load(config_file.open()))
+    config = fspathtree(yaml.safe_load(config_file.read_text()))
     results_file = Path(config["results"])
 
     if not results_file.exists():
@@ -418,8 +440,8 @@ def print_summary(config_file: Path):
     try:
 
         results = GradingResults()
-        results.load(results_file.open())
-        warnings,errors = results.score()
+        results.load(results_file)
+        warnings, errors = results.score()
         for w in warnings:
             print(f"[yellow]{w}[/yellow]")
         for e in errors:
@@ -432,3 +454,37 @@ def print_summary(config_file: Path):
 
     finally:
         pass
+
+
+# @app.command()
+# def merge_results(
+#     source_results_file: Path, dest_results_file: Path,
+#     output_file: Path = typer.Option(
+#         None, "--output","-o", help="Output file name."
+#     ),
+#     overwrite: bool = typer.Option(
+#         False, "-x", help="Overwrite the output file if it already exists."
+#     ),
+# ):
+#     """
+#     Merge results from source into results of destination.
+
+#     If you make changes to a rubric, then you can use this file to move
+#     the results of a partially/fully graded results file into the new
+#     results file.
+
+#     All leaf nodes found in source AND dest will be copied to dest.
+#     """
+#     if not source_results_file.exists():
+#         print(
+#             f"[bold red]Results file '{source_results_file}' does not exists.[/bold red]"
+#         )
+#         raise typer.Exit(1)
+#     if not dest_results_file.exists():
+#         print(
+#             f"[bold red]Results file '{source_results_file}' does not exists.[/bold red]"
+#         )
+#         raise typer.Exit(1)
+
+#     source = fspathtree(yaml.safe_load(source_results_file.read_text()))
+#     dest = fspathtree(yaml.safe_load(source_results_file.read_text()))

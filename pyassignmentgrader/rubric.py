@@ -1,6 +1,7 @@
 import fspathtree as ft
 import yaml
 import copy
+import pathlib
 
 
 class GradingRubric:
@@ -32,12 +33,12 @@ class GradingRubric:
     def __init__(self):
         self.data = None
 
-    def load(self, filehandle):
-        self.data = ft.fspathtree(yaml.safe_load(filehandle))
+    def load(self, file:pathlib.Path):
+        self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
 
-    def dump(self, filehandle):
+    def dump(self, file:pathlib.Path):
         text = yaml.safe_dump(self.data.tree, sort_keys=False)
-        filehandle.write(text)
+        file.write_text(text)
 
     def make_empty_grading_results(self):
         results = ft.fspathtree()

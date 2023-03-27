@@ -21,12 +21,22 @@ class PythonFunctionHandler:
         code = f"from {parse_results['module_name']} import {parse_results['function_name']}"
         return code
     
-    def __init__(self,function_spec):
+    def __init__(self,function_spec,ctx={}):
         self.function = None
-        parse_results = self.parsers.function_specification.parse_string(function_spec,parse_all=True)
+        self.function_spec = function_spec if function_spec.endswith(")") else function_spec+"()"
+        self.ctx = ctx # context object
+        function_spec = self.function_spec.format(**self.ctx)
+        try:
+            parse_results = self.parsers.function_specification.parse_string(function_spec,parse_all=True)
+        except Exception as e:
+            raise RuntimeError(f"Could not parse the function specification '{self.function_spec}': {e}")
+        self.module_name = parse_results["module_name"]
         self.function_name = parse_results["function_name"]
         self.function_args = parse_results["function_signature"] if "function_signature" in parse_results else None
-        exec(self.make_import_statement(parse_results))
+        try:
+            exec(self.make_import_statement(parse_results))
+        except Exception:
+            raise RuntimeError(f"Could not import function '{self.function_name}' from module '{self.module_name}'.")
         # We need to bind any user-defined arguments to the function call here.
         self.function = eval(f"functools.partial({parse_results['function_name']},{self.function_args})")
         self.function_signature = inspect.signature(self.function)
