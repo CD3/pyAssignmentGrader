@@ -1,0 +1,8 @@
+workspace_directory: workspace
+preprocessing:
+  - mkdir -p workspace
+students:
+  - name : jdoe
+  - name: rshackleford
+rubric: rubric.yml
+results: results.yml

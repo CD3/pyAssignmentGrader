@@ -1,0 +1,34 @@
+jdoe:
+  working_directory: jdoe
+  checks:
+  - desc: Python function call check
+    handler: checks:Problem1()
+    tag: Problem 1
+    weight: 1
+    result: null
+    notes:
+    - ''
+  - desc: Python function call check
+    handler: checks:Problem2()
+    tag: Problem 2
+    weight: 1
+    result: null
+    notes:
+    - ''
+rshackleford:
+  working_directory: rshackleford
+  checks:
+  - desc: Python function call check
+    handler: checks:Problem1()
+    tag: Problem 1
+    weight: 1
+    result: null
+    notes:
+    - ''
+  - desc: Python function call check
+    handler: checks:Problem2()
+    tag: Problem 2
+    weight: 1
+    result: null
+    notes:
+    - ''

@@ -10,6 +10,7 @@ from ..handlers.python_function import *
 from ..utils import ShellCheck, DirStack, get_working_directory_for_node
 
 
+
 class GradingItemController:
     class ResultAction(Enum):
         PASS = 1
@@ -270,6 +271,64 @@ class GradingItemController:
         self.InfoText.set_text(lines)
 
 
+
+
+
+class ScrollableText(urwid.ListBox):
+    def __init__(self,lines):
+        self.list_walker =  urwid.SimpleListWalker([]) 
+        super().__init__(self.list_walker)
+        self.set_text(lines)
+
+    def set_text(self,text):
+        '''
+        test is list that could be passed to urwid.Text()
+
+        i.e., each element is either a string, or a tuple of text attributes
+        and a string. Rather than putting the text into a single Text widget thgough,
+        we put it into multiple Text elements Pile'd on top of each other.
+        '''
+        if type(text) == str:
+            text = text.split('\n')
+
+        self.list_walker.clear()
+        # start building Text widgets for each line
+        next_line = [""]
+        for t in text:
+            # if we get a new line, then we want to take all        
+            # of the text before the new line and put it in an
+            # urwid.Text(...) widget
+            if t == "\n":
+                # add an element to the list walker if needed
+                self.list_walker.append( urwid.Text(next_line,wrap='clip') )
+                # setup for next line
+                next_line = [""]
+                continue
+
+            # if text is not a new line character, then we want
+            # to append it to the text that will be put into the
+            # next line.
+            next_line.append(t)
+        self.list_walker.append( urwid.Text(next_line,wrap='clip') )
+
+    def keypress(self, size, key):
+
+        if key in ['J', 'down']:
+            return 'down'
+        if key in ['K', 'up']:
+            return 'up'
+
+        if key == 'j':
+            super().keypress(size,'down')
+        if key == 'k':
+            super().keypress(size,'up')
+
+        return super().keypress(size, key)
+
+
+
+
+
 class GradingItemView:
     def goto_prev(self, *args, **kwargs):
         self.goto_prev_imp(*args, **kwargs)
@@ -364,19 +423,13 @@ class GradingItemView:
         self.ManualArea = urwid.LineBox(self.ManualText,title="Manual",title_align="left")
 
 
-        # FIXME: we need to figure out a way to scroll the text in this section.
-        self.InfoText = urwid.Text("Nothing to display")
-        # self.InfoText = urwid.Edit()
-        # self.InfoText.set_text = self.InfoText.set_edit_text
-        # self.InfoText.set_text("Nothing to display")
-        self.InfoDisplayContainer = urwid.Filler(self.InfoText, "top")
+        self.InfoText = ScrollableText("Nothing to display")
         self.InfoDisplayArea = urwid.LineBox(
-            self.InfoDisplayContainer, title="Info", title_align="left"
+            self.InfoText, title="Info", title_align="left"
         )
-        self.ErrorText = urwid.Text("No errors")
-        self.ErrorDisplayContainer = urwid.Filler(self.ErrorText, "top")
+        self.ErrorText = ScrollableText("No errors")
         self.ErrorDisplayArea = urwid.LineBox(
-            self.ErrorDisplayContainer, title="Errors", title_align="left"
+            self.ErrorText, title="Errors", title_align="left"
         )
 
         self.UILeftColumnItems = [self.InfoDisplayArea, self.ErrorDisplayArea]

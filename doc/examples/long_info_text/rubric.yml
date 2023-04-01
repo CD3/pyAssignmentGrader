@@ -1,0 +1,10 @@
+working_directory: "{name}"
+checks:
+- desc: Python function call check
+  handler: checks:Problem1()
+  tag: Problem 1
+  weight: 1
+- desc: Python function call check
+  handler: checks:Problem2()
+  tag: Problem 2
+  weight: 1
