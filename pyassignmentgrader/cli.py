@@ -107,6 +107,7 @@ def setup_grading_files(
         for student in config["students"]:
             results.update_student(student["name"], rubric)
 
+    render_tree(results.data)
     results.dump(results_file)
 
     sys.path.append(str(config_file.absolute().parent))

@@ -1,5 +1,6 @@
 import contextlib
 import os
+import copy
 from pathlib import Path
 import subprocess
 from fspathtree import fspathtree
@@ -54,8 +55,75 @@ def get_working_directory_for_node(node:fspathtree):
         working_directories.append(node['working_directory'])
     return "/".join(working_directories)
 
-    
+def get_context_for_node(node:fspathtree):
+    '''
+    Get the context object for a node in tree.
+    For example:
+    user-1:
+      context:
+        id: 1234
+checks:
+        - name : check 1
+          context:
+            file: file.txt
 
+
+    The context for /user-1/checks/0/name should be
+
+    id: 1234
+    file: file.txt
+    '''
+
+    path_parts = node.path().parts # strip off the "/" part
+    ctx = {}
+    context_paths = ['/'.join(path_parts[:i+1]+('context',)).replace('//','/') for i in range(len(path_parts)) ]
+    for context_path in context_paths:
+        if context_path in node:
+            add_ctx = fspathtree(copy.deepcopy(node[context_path].tree))
+            for key in add_ctx.get_all_leaf_node_paths():
+                if isinstance(add_ctx[key],(str)):
+                    add_ctx[key] = add_ctx[key].format(**ctx)
+
+            ctx.update(add_ctx.tree)
+
+
+    return ctx
+
+
+def render_tree(tree:fspathtree):
+    '''
+    Render an fspathree with the tree's context nodes.
+
+    For example:
+
+    user-1:
+      context:
+        id: 1234
+      checks:
+        - name : Checking that {file} exists for student {id}.
+          context:
+            file: file.txt
+
+    should render to
+
+    user-1:
+      context:
+        id: 1234
+      checks:
+        - name : Checking that file.txt exists for student 1234.
+          context:
+            file: file.txt
+
+
+    '''
+
+    for key in tree.get_all_leaf_node_paths():
+        ctx = get_context_for_node( tree[key.parts[:-1] ] )
+        if isinstance(tree[key], (str)):
+            tree[key] = tree[key].format(**ctx)
+
+
+    return tree
 
 def hello_world():
     return "Hello World"

@@ -34,7 +34,17 @@ class GradingRubric:
         self.data = None
 
     def load(self, file:pathlib.Path):
-        self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
+        if hasattr(file,'read_text'):
+            self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
+            return
+        if hasattr(file,'read'):
+            self.data = ft.fspathtree(yaml.safe_load(file.read()))
+            return
+
+        raise RuntimeError(f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle.")
+
+
+
 
     def dump(self, file:pathlib.Path):
         text = yaml.safe_dump(self.data.tree, sort_keys=False)

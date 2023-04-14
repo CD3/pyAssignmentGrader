@@ -3,6 +3,7 @@ import pprint
 import yaml
 import pathlib
 from .rubric import GradingRubric
+from .utils import render_tree
 
 # import tomllib
 
@@ -12,19 +13,36 @@ class GradingResults:
         self.data = ft.fspathtree()
 
     def load(self, file:pathlib.Path):
-        self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
+        if hasattr(file,'read_text'):
+            self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
+            return
+        if hasattr(file,'read'):
+            self.data = ft.fspathtree(yaml.safe_load(file.read()))
+            return
+
+        raise RuntimeError(f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle.")
 
     def dump(self, file:pathlib.Path):
         text = yaml.dump(self.data.tree, sort_keys=False)
-        file.write_text(text)
-        
+        if hasattr(file,'write_text'):
+            file.write_text(text)
+            return
+        if hasattr(file,'write'):
+            file.write(text)
+            return
+
+
+        raise RuntimeError(f"Could not figure out how to write text to {file}. It does not appear to be a pathlib.Path or file handle.")
+
 
     def __render_working_directories(self):
             for key in self.data.get_all_leaf_node_paths(
                 predicate=lambda p: p.name == "working_directory" or p.name == "handler"
             ):
                 name = key.parts[1]
-                self.data[key] = self.data[key].format(name=name)
+                try:
+                    self.data[key] = self.data[key].format(name=name)
+                except: pass
 
 
     def add_student(self, name: str, rubric: GradingRubric):

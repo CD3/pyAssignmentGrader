@@ -124,7 +124,28 @@ def P2Check():
 
     return tmpdir
 
+@pytest.fixture(scope="function")
+def setup_simple_grading_example_with_rendering(tmp_path_factory):
+    tmpdir = tmp_path_factory.mktemp("grading_example")
+    with working_dir(tmpdir) as d:
+        rubric = fspathtree.fspathtree()
+        config = fspathtree.fspathtree()
 
+        rubric["checks/0/tag"] = "P1"
+        rubric["checks/0/desc"] = "Check for `{filename}`."
+        rubric["checks/0/handler"] = "test -e {filename}"
+        rubric["checks/0/context/filename"] = "tmp.txt"
+
+        config["students/0/name"] = "jdoe"
+        config["rubric"] = "HW-00-rubric.yml"
+        config["results"] = "HW-00-results.yml"
+
+        yaml.safe_dump(rubric.tree, pathlib.Path("HW-00-rubric.yml").open('w'))
+        yaml.safe_dump(config.tree, pathlib.Path("HW-00-config.yml").open('w'))
+
+
+
+    return tmpdir
 
 
 
@@ -268,6 +289,24 @@ def test_grading_simple_assignment_with_secondary_checks(setup_basic_grading_exa
         # assert grading_results['jdoe/checks/1/secondary_results/checks/0/result'] == True
 
 
+
+
+def test_rendering_results_file(setup_simple_grading_example_with_rendering):
+    with working_dir(setup_simple_grading_example_with_rendering) as d:
+        assert pathlib.Path("HW-00-config.yml").exists()
+        assert pathlib.Path("HW-00-rubric.yml").exists()
+
+        results = runner.invoke(app, ["setup-grading-files","HW-00-config.yml"])
+
+        assert pathlib.Path("HW-00-results.yml").exists()
+
+        grading_results = fspathtree.fspathtree(yaml.safe_load(pathlib.Path("HW-00-results.yml").open()))
+
+        assert "jdoe" in grading_results
+        assert grading_results['jdoe/checks/0/tag'] == "P1"
+        assert grading_results['jdoe/checks/0/desc'] == "Check for `tmp.txt`."
+        assert grading_results['jdoe/checks/0/handler'] == "test -e tmp.txt"
+        assert grading_results['jdoe/checks/0/result'] == None
 
 
 
