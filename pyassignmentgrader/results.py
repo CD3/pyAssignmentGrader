@@ -35,20 +35,12 @@ class GradingResults:
         raise RuntimeError(f"Could not figure out how to write text to {file}. It does not appear to be a pathlib.Path or file handle.")
 
 
-    def __render_working_directories(self):
-            for key in self.data.get_all_leaf_node_paths(
-                predicate=lambda p: p.name == "working_directory" or p.name == "handler"
-            ):
-                name = key.parts[1]
-                try:
-                    self.data[key] = self.data[key].format(name=name)
-                except: pass
-
-
     def add_student(self, name: str, rubric: GradingRubric):
         if name not in self.data:
             self.data.tree[name] = rubric.make_empty_grading_results().tree
-            self.__render_working_directories()
+            # add the student name to a context for this tree so we can use it in
+            # sub-nodes.
+            self.data[name]['context/name'] = name
         else:
             raise RuntimeError(f"Student '{name}' is already in the grading results.")
 
@@ -62,7 +54,7 @@ class GradingResults:
         for missing_key in missing_keys:
             self.data[ f"/{name}/{missing_key}"] = empty_results[f"{missing_key}"]
 
-        self.__render_working_directories()
+        self.data[name]['context/name'] = name
 
     # def get_all_check_keys(self):
     #     self.data.get_all_leaf_node_paths(

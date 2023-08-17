@@ -148,7 +148,7 @@ def setup_grading_files(
                         eval(make_function_call(conf["cmd"]))
                     except Exception as e:
                         print(
-                            f"[red]There was an error trying to evaluate function call references by '{conf['cmd']}'[/red]"
+                            f"[red]There was an error trying to evaluate function call referenced by '{conf['cmd']}'[/red]"
                         )
                         print(f"[red]Error Message: {e}[/red]")
 
@@ -397,7 +397,7 @@ def run_check(check, ctx, force=False):
             return eval(make_function_call(handler))
         except Exception as e:
             print(
-                f"[red]There was an error trying to evaluate function call references by '{handler}'[/red]"
+                f"[red]There was an error trying to evaluate function call referenced by '{handler}'[/red]"
             )
             print(f"[red]Error Message: {e}[/red]")
             return {"result": None, "notes": notes}
