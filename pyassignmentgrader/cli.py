@@ -1,15 +1,17 @@
+import inspect
+import sys
+from pathlib import Path
+from subprocess import PIPE, STDOUT, run
+
 import typer
 import yaml
-import sys
-import inspect
-from rich import print
-from pathlib import Path
 from fspathtree import fspathtree
-from pyassignmentgrader import *
-from subprocess import run, PIPE, STDOUT
+from rich import print
 
-from .utils import *
+from pyassignmentgrader import *
+
 from .ui import console as console_view
+from .utils import *
 
 app = typer.Typer()
 
@@ -168,7 +170,6 @@ def write_example_config_file(
         False, "-x", help="Overwrite the config file if it already exists."
     ),
 ):
-
     if not overwrite and config_file.exists():
         print(
             f"[bold red]Config file '{config_file}' already exists. Remove and run again, or use the `-x` option.[/bold red]"
@@ -195,7 +196,6 @@ def write_example_rubric_file(
         False, "-x", help="Overwrite the results file if it already exists."
     ),
 ):
-
     if not overwrite and rubric_file.exists():
         print(
             f"[bold red]Rubric file '{rubric_file}' already exists. Remove and run again, or use the `-x` option.[/bold red]"
@@ -263,38 +263,37 @@ def run_checks(
 
     if ui == "cli":
         try:
-            with working_dir(workspace_directory):
-                for student_name in results.data.tree:
-                    if student and student_name != student:
-                        continue
+            # with working_dir(workspace_directory):
+            for student_name in results.data.tree:
+                if student and student_name != student:
+                    continue
 
-                    print()
-                    print()
-                    print(f"Grading assignment for {student_name}")
+                print()
+                print()
+                print(f"Grading assignment for {student_name}")
 
-                    wd = Path(
-                        results.data.get(f"{student_name}/working_directory", ".")
-                    ).absolute()
-                    with working_dir(wd) as student_dir:
-                        ctx = fspathtree()
-                        ctx["student_name"] = student_name
-                        ctx["student_dir"] = student_dir
-                        ctx["list_of_checks"] = results.data[student_name]["checks"]
-                        ctx["workspace_directory"] = config_file.parent / config.get(
-                            "workspace_directory", "grading_workspace"
-                        )
-                        run_list_of_checks(
-                            results.data[student_name]["checks"], tag, ctx, force
-                        )
+                wd = Path(
+                    results.data.get(f"{student_name}/working_directory", ".")
+                ).absolute()
+                with working_dir(wd) as student_dir:
+                    ctx = fspathtree()
+                    ctx["student_name"] = student_name
+                    ctx["student_dir"] = student_dir
+                    ctx["list_of_checks"] = results.data[student_name]["checks"]
+                    ctx["workspace_directory"] = config_file.parent / config.get(
+                        "workspace_directory", "grading_workspace"
+                    )
+                    run_list_of_checks(
+                        results.data[student_name]["checks"], tag, ctx, force
+                    )
 
         except Exception as e:
-            print("[red]An exception was thrown while trying to run checsk.[/red]")
+            print("[red]An exception was thrown while trying to run checks.[/red]")
             print(f"[red]Error Message: {e}[/red]")
         finally:
             results.dump(results_file.open("w"))
 
     elif ui == "tui":
-
         current_directory = pathlib.Path().absolute()
         try:
             check_paths = list(
@@ -351,7 +350,6 @@ def run_list_of_checks(list_of_checks, tag, ctx, force=False):
                 print("    ", n)
 
             if check["result"] is False and "secondary_checks" in check:
-
                 wwd = Path(
                     check.get("secondary_checks/working_directory", ".")
                 ).absolute()
@@ -369,6 +367,7 @@ def run_check(check, ctx, force=False):
     handler = check.get("handler", "manual")
     print(f"Running check for '{check_name}'")
     if handler == "manual":
+        # run and return result of manual check
         print("Manual Check")
         response = ""
         while response.lower() not in ["y", "n", "yes", "no", "s", "skip"]:
@@ -389,6 +388,7 @@ def run_check(check, ctx, force=False):
         return {"result": result, "notes": notes}
 
     if ":" in handler:
+        # run and return result of a python function check
         if "{name}" in handler:
             handler = handler.format(name=check.path().parts[1])
         print(f"  Calling '{handler}' as Python function")
@@ -403,6 +403,7 @@ def run_check(check, ctx, force=False):
             return {"result": None, "notes": notes}
 
     try:
+        # run and return result of shell command
         print(f"  Calling '{handler}' as shell command")
         ret = run(handler, shell=True, stdout=PIPE, stderr=STDOUT)
         if ret.returncode == 0:
@@ -439,7 +440,6 @@ def print_summary(config_file: Path):
         raise typer.Exit(1)
 
     try:
-
         results = GradingResults()
         results.load(results_file)
         warnings, errors = results.score()
