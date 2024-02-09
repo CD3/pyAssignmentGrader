@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyassignmentgrader"
-version = "0.1"
+version = "0.2"
 description = ""
 authors = ["CD Clark III <clifton.clark@gmail.com>"]
 readme = "README.md"
