@@ -51,6 +51,7 @@ def setup_basic_grading_example_without_secondary_checks(tmp_path_factory):
         rubric = fspathtree.fspathtree()
         config = fspathtree.fspathtree()
 
+        rubric["working_directory"] = "workspace"
         rubric["checks/0/tag"] = "P1"
         rubric["checks/0/desc"] = "Check for P1"
         rubric["checks/0/handler"] = "test -e tmp.txt"
@@ -89,6 +90,7 @@ def setup_basic_grading_example_with_secondary_checks(tmp_path_factory):
         rubric = fspathtree.fspathtree()
         config = fspathtree.fspathtree()
 
+        rubric["working_directory"] = "workspace"
         rubric["checks/0/tag"] = "P1"
         rubric["checks/0/desc"] = "Check for P1"
         rubric["checks/0/handler"] = "test -e tmp.txt"
