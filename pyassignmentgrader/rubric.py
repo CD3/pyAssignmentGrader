@@ -21,6 +21,8 @@ class GradingRubric:
         weight: float
         handler: string
         working_directory: string
+        on_sucess:
+            handler: string
         secondary_checks:
           weight: float
           checks:
@@ -36,13 +38,11 @@ class GradingRubric:
     def load(self, file:pathlib.Path):
         if hasattr(file,'read_text'):
             self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
-            return
-        if hasattr(file,'read'):
+        elif hasattr(file,'read'):
             self.data = ft.fspathtree(yaml.safe_load(file.read()))
-            return
 
-        raise RuntimeError(f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle.")
-
+        if self.data is None:
+            raise RuntimeError(f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle.")
 
 
 

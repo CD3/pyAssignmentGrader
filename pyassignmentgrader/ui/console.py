@@ -1,14 +1,15 @@
-import urwid
 import copy
 import os
-import yaml
-import pprint
 import pathlib
-
+import pprint
+import subprocess
 from enum import Enum
-from ..handlers.python_function import *
-from ..utils import ShellCheck, DirStack, get_working_directory_for_node
 
+import urwid
+import yaml
+
+from ..handlers.python_function import *
+from ..utils import DirStack, ShellCheck, get_working_directory_for_node
 
 
 class GradingItemController:
@@ -22,7 +23,9 @@ class GradingItemController:
         self.results = results
         self.check_paths = check_paths
 
-        self.root_working_directory = pathlib.Path(self.results.data.get("working_directory", ".")).absolute()
+        self.root_working_directory = pathlib.Path(
+            self.results.data.get("working_directory", ".")
+        ).absolute()
 
         self.view = GradingItemView()
         self.view.ResultSelectButtons[0].set_label("PASS")
@@ -53,7 +56,6 @@ class GradingItemController:
 
         self.result_action = self.ResultAction.DO_NOT_CHANGE
         self.update_info_text()
-
 
     def action_quit(self):
         pass
@@ -93,14 +95,19 @@ class GradingItemController:
 
     def action_goto_next_ungraded(self, btn):
         self.increment_current_check()
-        while self.current_check is not None and self.current_check.get('result',None) is not None:
+        while (
+            self.current_check is not None
+            and self.current_check.get("result", None) is not None
+        ):
             self.increment_current_check()
 
     def action_goto_prev_ungraded(self, btn):
         self.decrement_current_check()
-        while self.current_check is not None and self.current_check.get('result',None) is not None:
+        while (
+            self.current_check is not None
+            and self.current_check.get("result", None) is not None
+        ):
             self.decrement_current_check()
-
 
     def get_result_action_text(self, r):
         if r == self.ResultAction.PASS:
@@ -122,7 +129,6 @@ class GradingItemController:
             return "Result not set"
 
         return "UNKNOWN"
-
 
     def increment_current_check(self):
         self.save_current_check()
@@ -152,11 +158,34 @@ class GradingItemController:
 
         os.chdir(self.root_working_directory)
         if self.current_check:
-            wd = self.root_working_directory/get_working_directory_for_node(self.current_check)
+            wd = self.root_working_directory / get_working_directory_for_node(
+                self.current_check
+            )
             try:
                 os.chdir(wd)
             except:
                 self.ErrorText.set_text(f"Could not cd into directory '{wd}'")
+
+            if "setup" in self.current_check:
+                cmd = self.current_check["setup"]
+                ret = subprocess.run(
+                    cmd,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+                if ret.returncode != 0:
+                    self.ErrorText.set_text(
+                        f"Error running setup command.\nsetup cmd:{cmd}\ncmd output:\n{ret.stdout.decode('utf-8')}"
+                    )
+            if "launch" in self.current_check and self.current_check["result"] is None:
+                cmd = self.current_check["launch"]
+                ret = subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
 
             handler = self.current_check["handler"]
             self.current_handler_output = None
@@ -230,17 +259,29 @@ class GradingItemController:
             )
         )
         lines.append("\n")
+        lines.append("Setup: ")
+        lines.append(
+            (
+                "emph2" if self.current_handler_output is None else "emph1",
+                self.current_check["setup"]
+                if "setup" in self.current_check
+                else "None",
+            )
+        )
+        lines.append("\n")
         lines.append("RWD: ")
         lines.append(str(self.root_working_directory))
         lines.append("\n")
         lines.append("CWD: ")
-        lines.append(str(pathlib.Path().absolute().relative_to(self.root_working_directory)))
+        lines.append(
+            str(pathlib.Path().absolute().relative_to(self.root_working_directory))
+        )
         lines.append("\n")
         lines.append("\n")
         if self.current_handler_output:
             if "result" in self.current_handler_output:
-                lines.append(("emph3","Result: "))
-                lines.append(("emph3",str(self.current_handler_output["result"])))
+                lines.append(("emph3", "Result: "))
+                lines.append(("emph3", str(self.current_handler_output["result"])))
                 lines.append("\n")
                 lines.append("\n")
             if "notes" in self.current_handler_output:
@@ -252,9 +293,11 @@ class GradingItemController:
                 lines.append("\n")
             if "display" in self.current_handler_output:
                 for key in self.current_handler_output["display"]:
-                    lines.append(('emph1',key))
+                    lines.append(("emph1", key))
                     lines.append(": ")
-                    lines.append(('emph2',str(self.current_handler_output["display"][key])))
+                    lines.append(
+                        ("emph2", str(self.current_handler_output["display"][key]))
+                    )
                 lines.append("\n")
                 lines.append("\n")
 
@@ -271,36 +314,33 @@ class GradingItemController:
         self.InfoText.set_text(lines)
 
 
-
-
-
 class ScrollableText(urwid.ListBox):
-    def __init__(self,lines):
-        self.list_walker =  urwid.SimpleListWalker([]) 
+    def __init__(self, lines):
+        self.list_walker = urwid.SimpleListWalker([])
         super().__init__(self.list_walker)
         self.set_text(lines)
 
-    def set_text(self,text):
-        '''
+    def set_text(self, text):
+        """
         test is list that could be passed to urwid.Text()
 
         i.e., each element is either a string, or a tuple of text attributes
         and a string. Rather than putting the text into a single Text widget thgough,
         we put it into multiple Text elements Pile'd on top of each other.
-        '''
+        """
         if type(text) == str:
-            text = text.split('\n')
+            text = text.split("\n")
 
         self.list_walker.clear()
         # start building Text widgets for each line
         next_line = [""]
         for t in text:
-            # if we get a new line, then we want to take all        
+            # if we get a new line, then we want to take all
             # of the text before the new line and put it in an
             # urwid.Text(...) widget
             if t == "\n":
                 # add an element to the list walker if needed
-                self.list_walker.append( urwid.Text(next_line,wrap='clip') )
+                self.list_walker.append(urwid.Text(next_line, wrap="clip"))
                 # setup for next line
                 next_line = [""]
                 continue
@@ -309,24 +349,20 @@ class ScrollableText(urwid.ListBox):
             # to append it to the text that will be put into the
             # next line.
             next_line.append(t)
-        self.list_walker.append( urwid.Text(next_line,wrap='clip') )
+        self.list_walker.append(urwid.Text(next_line, wrap="clip"))
 
     def keypress(self, size, key):
+        if key in ["J", "down"]:
+            return "down"
+        if key in ["K", "up"]:
+            return "up"
 
-        if key in ['J', 'down']:
-            return 'down'
-        if key in ['K', 'up']:
-            return 'up'
-
-        if key == 'j':
-            super().keypress(size,'down')
-        if key == 'k':
-            super().keypress(size,'up')
+        if key == "j":
+            super().keypress(size, "down")
+        if key == "k":
+            super().keypress(size, "up")
 
         return super().keypress(size, key)
-
-
-
 
 
 class GradingItemView:
@@ -356,7 +392,6 @@ class GradingItemView:
         self.result_action_changed_imp(*args, **kwargs)
 
     def __init__(self):
-
         self.ResultSelectButtons = []
         for i in range(4):
             urwid.RadioButton(
@@ -417,11 +452,14 @@ class GradingItemView:
         man_lines.append("  Pull  - pull results from handler output into the")
         man_lines.append("          current grading item.")
 
-        man_lines = [ line for pair in zip(man_lines,["\n"]*len(man_lines)) for line in pair ]
+        man_lines = [
+            line for pair in zip(man_lines, ["\n"] * len(man_lines)) for line in pair
+        ]
         self.ManualText = urwid.Text(man_lines)
-        self.ManualContainer  = urwid.Filler(self.ManualText,"bottom")
-        self.ManualArea = urwid.LineBox(self.ManualText,title="Manual",title_align="left")
-
+        self.ManualContainer = urwid.Filler(self.ManualText, "bottom")
+        self.ManualArea = urwid.LineBox(
+            self.ManualText, title="Manual", title_align="left"
+        )
 
         self.InfoText = ScrollableText("Nothing to display")
         self.InfoDisplayArea = urwid.LineBox(
@@ -448,15 +486,18 @@ class GradingItemView:
         )
         # self.UILeftColumn.keypress = lambda a,b: print("HI")
         self.UIRightColumnListWalker = urwid.SimpleListWalker(self.UIRightColumnItems)
+
         # We don't want the manual area to recieve focus, so if it does, we will set
         # set the focus to the top of the list.
         def skip_manual_item():
-            if self.UIRightColumnListWalker.get_focus()[0] == self.UIRightColumnItems[-1]:
+            if (
+                self.UIRightColumnListWalker.get_focus()[0]
+                == self.UIRightColumnItems[-1]
+            ):
                 self.UIRightColumnListWalker.set_focus(0)
-        urwid.connect_signal( self.UIRightColumnListWalker, "modified", skip_manual_item )
-        self.UIRightColumn = urwid.ListBox(
-                self.UIRightColumnListWalker
-        )
+
+        urwid.connect_signal(self.UIRightColumnListWalker, "modified", skip_manual_item)
+        self.UIRightColumn = urwid.ListBox(self.UIRightColumnListWalker)
 
         self.TopLayout = urwid.Columns(
             [("weight", 0.6, self.UILeftColumn), ("weight", 0.4, self.UIRightColumn)]
@@ -469,9 +510,9 @@ class GradingItemView:
             ("h", "left"),
             ("l", "right"),
         ]:
-            self.TopLayout._command_map[mapping[0]] = self.TopLayout._command_map[mapping[1]]
-
-
+            self.TopLayout._command_map[mapping[0]] = self.TopLayout._command_map[
+                mapping[1]
+            ]
 
     def last_ui_area_position(self):
         p = 0
@@ -507,7 +548,6 @@ class GradingItemView:
         return keys
 
     def input_handler(self, key):
-        
         if key == "q":
             self.quit()
         if key in ["tab", "J"]:
