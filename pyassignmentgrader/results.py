@@ -1,7 +1,9 @@
-import fspathtree as ft
-import pprint
-import yaml
 import pathlib
+import pprint
+
+import fspathtree as ft
+import yaml
+
 from .rubric import GradingRubric
 from .utils import render_tree
 
@@ -12,35 +14,37 @@ class GradingResults:
     def __init__(self):
         self.data = ft.fspathtree()
 
-    def load(self, file:pathlib.Path):
-        if hasattr(file,'read_text'):
+    def load(self, file: pathlib.Path):
+        if hasattr(file, "read_text"):
             self.data = ft.fspathtree(yaml.safe_load(file.read_text()))
             return
-        if hasattr(file,'read'):
+        if hasattr(file, "read"):
             self.data = ft.fspathtree(yaml.safe_load(file.read()))
             return
 
-        raise RuntimeError(f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle.")
+        raise RuntimeError(
+            f"Could not figure out how to read {file}. It does not appear to be a pathlib.Path or file handle."
+        )
 
-    def dump(self, file:pathlib.Path):
+    def dump(self, file: pathlib.Path):
         text = yaml.dump(self.data.tree, sort_keys=False)
-        if hasattr(file,'write_text'):
+        if hasattr(file, "write_text"):
             file.write_text(text)
             return
-        if hasattr(file,'write'):
+        if hasattr(file, "write"):
             file.write(text)
             return
 
-
-        raise RuntimeError(f"Could not figure out how to write text to {file}. It does not appear to be a pathlib.Path or file handle.")
-
+        raise RuntimeError(
+            f"Could not figure out how to write text to {file}. It does not appear to be a pathlib.Path or file handle."
+        )
 
     def add_student(self, name: str, rubric: GradingRubric):
         if name not in self.data:
             self.data.tree[name] = rubric.make_empty_grading_results().tree
             # add the student name to a context for this tree so we can use it in
             # sub-nodes.
-            self.data[name]['context/name'] = name
+            self.data[name]["context/name"] = name
         else:
             raise RuntimeError(f"Student '{name}' is already in the grading results.")
 
@@ -50,17 +54,18 @@ class GradingResults:
 
         result_keys = list(self.data[name].get_all_leaf_node_paths())
         empty_results = rubric.make_empty_grading_results()
-        missing_keys = empty_results.get_all_leaf_node_paths( predicate = lambda p : p not in result_keys)
+        missing_keys = empty_results.get_all_leaf_node_paths(
+            predicate=lambda p: p not in result_keys
+        )
         for missing_key in missing_keys:
-            self.data[ f"/{name}/{missing_key}"] = empty_results[f"{missing_key}"]
+            self.data[f"/{name}/{missing_key}"] = empty_results[f"{missing_key}"]
 
-        self.data[name]['context/name'] = name
+        self.data[name]["context/name"] = name
 
     # def get_all_check_keys(self):
     #     self.data.get_all_leaf_node_paths(
     #             predicate
     #             )
-
 
     def __score(self, list_of_checks):
         warnings = []
@@ -70,7 +75,7 @@ class GradingResults:
         for key in list_of_checks.get_all_leaf_node_paths(
             predicate=lambda p: len(p.parts) == 2 and p.name == "result",
         ):
-            total += list_of_checks.get(key/"../weight",1)
+            total += list_of_checks.get(key / "../weight", 1)
 
         user = list_of_checks.path().parts[1]
         for i in range(len(list_of_checks)):
@@ -91,6 +96,8 @@ class GradingResults:
             weight = check.get("weight", 1)
             if check["result"] is True:
                 awarded += weight
+                if "on_success" in check:
+                    pass  # TODO: add support for running command on success
             elif check["result"] is False:
                 if "secondary_checks" in check:
                     if "secondary_checks/checks" not in check:
@@ -105,13 +112,14 @@ class GradingResults:
                     warnings += w
                     errors += e
                     awarded += weight * check["secondary_checks/weight"] * a / t
-            elif isinstance( check["result"], (int,float) ):
-                awarded += weight*check["result"]
+            elif isinstance(check["result"], (int, float)):
+                awarded += weight * check["result"]
             else:
-                raise RuntimeError(f"Unexpected result type {type(check['result'])}. Expected a bool, float, or None.")
+                raise RuntimeError(
+                    f"Unexpected result type {type(check['result'])}. Expected a bool, float, or None."
+                )
 
         return total, awarded, warnings, errors
-
 
     def score(self):
         warnings = []
@@ -155,8 +163,7 @@ class GradingResults:
                 for n in check["notes"]:
                     add_line(f"      {n}")
 
-
-            if check['result'] == False and "secondary_checks" in check:
+            if check["result"] == False and "secondary_checks" in check:
                 add_line(f"  Secondary Checks:")
                 add_line(f"    weight: {check['secondary_checks/weight']}")
                 lines += self.__checks_summary(

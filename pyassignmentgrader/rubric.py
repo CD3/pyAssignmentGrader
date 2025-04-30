@@ -21,7 +21,7 @@ class GradingRubric:
         weight: float
         handler: string
         working_directory: string
-        on_sucess:
+        on_success:
             handler: string
         secondary_checks:
           weight: float
